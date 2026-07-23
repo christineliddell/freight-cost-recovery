@@ -1,0 +1,198 @@
+version: 2
+
+models:
+
+  - name: stg_orders
+    description: One row per customer order. Grain is order_id.
+    columns:
+      - name: order_id
+        description: Unique identifier for the order.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Per-order customer identifier.
+        data_tests:
+          - not_null
+      - name: purchased_at
+        description: When the customer placed the order.
+        data_tests:
+          - not_null
+      - name: promised_delivery_at
+        description: Delivery date shown to the customer at checkout.
+        data_tests:
+          - not_null
+      - name: delivered_at
+        description: When the order reached the customer.
+        data_tests:
+          - not_null:
+              config:
+                where: "order_status = 'delivered'"
+                severity: warn
+
+  - name: stg_order_items
+    description: >
+      One row per item shipped within an order. Grain is order_id plus
+      order_item_number. An order split across multiple sellers produces
+      multiple rows, each carrying its own freight charge.
+    columns:
+      - name: shipment_key
+        description: Surrogate key hashed from order_id and order_item_number.
+        data_tests:
+          - unique
+          - not_null
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_products')
+                field: product_id
+      - name: seller_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_sellers')
+                field: seller_id
+      - name: freight_cost_brl
+        description: Freight charged for this item, in Brazilian reais.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+      - name: item_price_brl
+        description: Item price excluding freight, in Brazilian reais.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+  - name: stg_products
+    description: >
+      Product attributes relevant to shipping cost. Grain is product_id.
+      Photo counts and description lengths are dropped as out of scope.
+      A small number of records carry missing or zero weight and dimensions.
+      These are flagged as warnings here and excluded from cost per kilogram
+      benchmarking downstream, with the excluded count reported.
+    columns:
+      - name: product_id
+        data_tests:
+          - unique
+          - not_null
+      - name: product_category
+        description: >
+          Product category name, in Portuguese. Missing for 610 products.
+          Not used in freight costing, so tracked as a warning only.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: product_weight_g
+        description: >
+          Product weight in grams. Two records are null and a small number
+          are zero, which is not physically possible.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+              config:
+                severity: warn
+      - name: product_volume_cm3
+        description: >
+          Length times height times width, in cubic centimetres. Null for the
+          same two records that are missing weight.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+  - name: stg_sellers
+    description: Seller locations, one row per seller.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "length(seller_zip_prefix) = 5"
+    columns:
+      - name: seller_id
+        data_tests:
+          - unique
+          - not_null
+      - name: seller_zip_prefix
+        description: Five-character Brazilian postal prefix, zero-padded.
+        data_tests:
+          - not_null
+  - name: stg_customers
+    description: Customer locations, one row per customer.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "length(customer_zip_prefix) = 5"
+    columns:
+      - name: customer_id
+        description: Per-order customer identifier.
+        data_tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: >
+          Stable identifier for the person. One individual ordering three times
+          has three customer_id values but a single customer_unique_id.
+        data_tests:
+          - not_null
+      - name: customer_zip_prefix
+        description: >
+          Five-character postal prefix. 279 customers carry a prefix with no
+          entry in the geolocation reference, so no distance can be computed
+          for their shipments. These are excluded from lane benchmarking
+          downstream and the excluded volume is reported.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_geolocation')
+                field: zip_prefix
+              config:
+                severity: warn
+  - name: stg_geolocation
+    description: >
+      One row per Brazilian postal prefix, with a centroid averaged from all
+      recorded coordinate points for that prefix. Points outside Brazil's
+      bounding box are excluded. Grain is zip_prefix.
+    columns:
+      - name: zip_prefix
+        data_tests:
+          - unique
+          - not_null
+      - name: latitude
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -34.0
+                max_value: 5.3
+      - name: longitude
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: -74.0
+                max_value: -34.8
+      - name: point_count
+        description: >
+          Number of raw coordinate points averaged into this centroid.
+        data_tests:
+          - not_null
