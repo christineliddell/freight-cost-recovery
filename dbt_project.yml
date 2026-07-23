@@ -1,0 +1,21 @@
+name: 'freight_cost_recovery'
+version: '1.0.0'
+profile: 'freight_cost_recovery'
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  freight_cost_recovery:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table

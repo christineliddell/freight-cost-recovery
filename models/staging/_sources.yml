@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: olist
+    description: >
+      Raw Olist Brazilian marketplace data, 2016-2018, loaded from Kaggle CSVs
+      by scripts/load_raw.py. All monetary values are Brazilian reais (BRL).
+    database: freight
+    schema: raw
+    tables:
+      - name: orders
+        description: One row per customer order.
+      - name: order_items
+        description: >
+          One row per item shipped within an order. An order split across
+          multiple sellers produces multiple rows, each with its own freight charge.
+      - name: products
+        description: Product attributes, including weight and package dimensions.
+      - name: sellers
+        description: Seller locations by zip code prefix.
+      - name: customers
+        description: Customer locations by zip code prefix.
+      - name: geolocation
+        description: Brazilian zip code prefixes mapped to latitude and longitude.
