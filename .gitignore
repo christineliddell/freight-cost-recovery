@@ -4,4 +4,4 @@ dbt_packages/
 logs/
 data/raw/
 data/*.duckdb
-.env
+.envprofiles.yml

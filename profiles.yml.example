@@ -1,0 +1,29 @@
+# Copy this file to your dbt profiles directory and fill in real values.
+# Windows: C:\Users\<you>\.dbt\profiles.yml
+#
+# dev  - DuckDB. Runs locally, needs no credentials. This is the default.
+# prod - Snowflake. Same models, different warehouse.
+#
+# Never commit real credentials. In CI, supply these from environment
+# variables using dbt's env_var function.
+
+freight_cost_recovery:
+  target: dev
+  outputs:
+
+    dev:
+      type: duckdb
+      path: data/freight.duckdb
+      schema: main
+      threads: 4
+
+    prod:
+      type: snowflake
+      account: abc12345.us-east-1
+      user: YOUR_USERNAME
+      password: YOUR_PASSWORD
+      role: TRANSFORMER
+      warehouse: TRANSFORMING_WH
+      database: FREIGHT
+      schema: DBT_PROD
+      threads: 8
