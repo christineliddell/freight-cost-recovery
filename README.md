@@ -77,13 +77,7 @@ weight band and never compared across them.
 ---
 
 ## How it works
-raw CSVs
-   ↓
-staging/          6 models — typing, renaming, cleaning
-   ↓
-intermediate/     joins, distance, weight bands, lane benchmarks
-   ↓
-marts/            fct_shipments, mart_freight_recovery
+
 
 | Model | Grain | Purpose |
 |---|---|---|
