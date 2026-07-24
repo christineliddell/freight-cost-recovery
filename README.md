@@ -87,7 +87,7 @@ weight band and never compared across them.
 | `fct_shipments` | one shipment | Actual vs. benchmark cost per shipment |
 | `mart_freight_recovery` | lane × weight band | Ranked opportunity with service quality |
 
-**41 data tests** cover uniqueness, grain, foreign keys, value ranges, and
+**61 data tests** cover uniqueness, grain, foreign keys, value ranges, and
 format assertions. Six known source data gaps run as documented warnings rather
 than silent exclusions.
 

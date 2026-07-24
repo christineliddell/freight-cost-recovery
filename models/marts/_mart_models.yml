@@ -1,0 +1,108 @@
+version: 2
+
+models:
+
+  - name: fct_shipments
+    description: >
+      One row per shipment, carrying its actual freight cost alongside the
+      benchmark rate for its lane and weight band. Grain is shipment_key.
+    columns:
+      - name: shipment_key
+        description: Surrogate key inherited from stg_order_items.
+        data_tests:
+          - unique
+          - not_null
+      - name: lane
+        description: Seller state to customer state, formatted as 'SP -> RJ'.
+        data_tests:
+          - not_null
+      - name: weight_band
+        description: Billable weight bucket assigned by the weight_band macro.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['00-01 kg', '01-03 kg', '03-10 kg', '10-30 kg', '30+ kg', 'unknown']
+      - name: freight_cost_brl
+        description: Freight charged on this shipment, in reais.
+        data_tests:
+          - not_null
+      - name: excess_spend_brl
+        description: >
+          Spend above the lane-band benchmark, floored at zero so that
+          shipments already beating their benchmark contribute nothing.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+      - name: in_recovery_scope
+        description: >
+          True where the shipment has a usable distance, a positive billable
+          weight, a benchmarkable lane band, and a status other than canceled
+          or unavailable.
+        data_tests:
+          - not_null
+
+  - name: mart_freight_recovery
+    description: >
+      Ranked recovery opportunity, one row per lane and weight band, over the
+      trailing twelve months. This is the model the README headline is read from.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - lane
+              - weight_band
+    columns:
+      - name: lane
+        data_tests:
+          - not_null
+      - name: weight_band
+        data_tests:
+          - not_null
+      - name: shipment_count
+        description: Shipments in this lane band within the trailing twelve months.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                inclusive: true
+      - name: recoverable_conservative_brl
+        description: >
+          Spend recoverable by bringing every shipment to its lane band
+          median rate.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+      - name: recoverable_aggressive_brl
+        description: Spend recoverable at the 25th percentile rate.
+        data_tests:
+          - not_null
+      - name: on_time_rate
+        description: >
+          Share of delivered shipments arriving on or before the promised date.
+          Null where no shipment in the band has a delivery date.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+      - name: recovery_rank
+        description: Rank by conservative recoverable spend, 1 being largest.
+        data_tests:
+          - unique
+          - not_null
+      - name: cumulative_pct_of_opportunity
+        description: Running share of total opportunity through this rank.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+                inclusive: true
